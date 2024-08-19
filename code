@@ -5,63 +5,47 @@ drive.mount('/content/drive')
 
 !pip install rasterio
 !pip install geopandas
-
 from google.colab import drive
 import os
-
 drive.mount('/content/drive')
-
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 from rasterio.plot import show
-
 # Specify the paths to your Sentinel-2 TIFF file and shapefile
 tiff_path = '/content/drive/MyDrive/newf/T45RXK_20181126T044121_B02_C11.tif'
 shp_path = '/content/drive/MyDrive/2018nov.shp'
-
 # Load the Sentinel-2 image using rasterio
 with rasterio.open(tiff_path) as src:
     sentinel_image = src.read()
-
 # Manually set the display range
 display_min = 0
 display_max = 4000  # Adjust this based on the actual data range
-
 # Clip and normalize the image values
 rgb_image = np.clip(sentinel_image, display_min, display_max)
 rgb_image_normalized = (rgb_image - display_min) / (display_max - display_min)
-
 # Display the RGB image using rasterio
 show(rgb_image_normalized, cmap='viridis')
-
 # Set the environment variable for SHAPE_RESTORE_SHX
 os.environ['SHAPE_RESTORE_SHX'] = 'YES'
-
 # Read the shapefile using geopandas
 shapefile = gpd.read_file(shp_path)
-
 # Plot the shapefile
 shapefile.plot(ax=plt.gca(), color='red', alpha=0.5)
-
 plt.axis('off')  # Turn off axis labels
 plt.show()
 
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
-
 # Mount Google Drive (if your shapefile is stored in Google Drive)
 from google.colab import drive
 drive.mount('/content/drive')
-
 # Specify the path to your shapefile
 shp_path = '/content/drive/MyDrive/2018nov.shp'
-
 # Read the shapefile using geopandas
 shapefile = gpd.read_file(shp_path)
-
 # Plot the shapefile
 shapefile.plot()
 plt.axis('off')  # Turn off axis labels
@@ -73,92 +57,72 @@ import rasterio
 from rasterio.mask import mask
 import numpy as np
 import matplotlib.pyplot as plt
-
 # Load the shapefile
 shapefile_path = '/content/drive/MyDrive/2018nov.shp'
 gdf = gpd.read_file(shapefile_path)
-
 # Load the raster dataset (e.g., Sentinel-2 image)
 tiff_path = '/content/drive/MyDrive/newf/T45RXK_20181126T044121_B02_C11.tif'
 src = rasterio.open(tiff_path)
-
 # Convert the geometries to a list
 shapes = [geom for geom in gdf.geometry]
-
 # Clip the raster dataset using the shapefile
 clipped_data, transform = mask(src, shapes, crop=True, nodata=-9999)
-
 # Convert the clipped_data to float32 for NDWI calculation
 clipped_data = clipped_data.astype(np.float32)
-
 # Assuming the last band is NIR and the second-to-last band is Green
 nir_band = clipped_data[-1]  # Last band
 green_band = clipped_data[-2]  # Second-to-last band
-
 # Calculate NDWI
 ndwi = (green_band - nir_band) / (green_band + nir_band)
-
 # Plot NDWI
 plt.imshow(ndwi, cmap='coolwarm', vmin=-1, vmax=1)  # Adjust colormap and range as needed
 plt.title('Normalized Difference Water Index (NDWI)')
 plt.colorbar()
 plt.axis('off')  # Turn off axis labels
 plt.show()
-
 # Close the raster dataset
 src.close()
 
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 # Threshold value
 threshold = 0.05
-
 # Apply thresholding
 ndwi_mask = np.where(ndwi > threshold, 1, 0)
-
 # Display the NDWI binary mask
 plt.imshow(ndwi_mask, cmap='binary')  # Use 'binary' colormap for binary images
 plt.title('NDWI Binary Mask')
 plt.colorbar()
 plt.axis('off')
 plt.show()
-
 # Inspect the binary mask data
 print("Unique values in NDWI binary mask:", np.unique(ndwi_mask))
 print("Number of non-zero pixels in NDWI binary mask:", np.count_nonzero(ndwi_mask))
 
 
 import cv2
-
 # Apply gray threshold segmentation
 _, segmented_river = cv2.threshold(ndwi_mask.astype(np.uint8), 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-
 # Display segmented river
 plt.imshow(segmented_river, cmap='binary')  # Use 'binary' colormap for binary images
 plt.title('Segmented River')
 plt.colorbar()
 plt.axis('off')
 plt.show()
-
 # Inspect the segmented river mask data
 print("Unique values in segmented river mask:", np.unique(segmented_river))
 print("Number of non-zero pixels in segmented river mask:", np.count_nonzero(segmented_river))
 
 import cv2
-
 # Apply gradient-based edge detection to the segmented river mask
 gradient_x = cv2.Sobel(segmented_river, cv2.CV_64F, 1, 0, ksize=3)
 gradient_y = cv2.Sobel(segmented_river, cv2.CV_64F, 0, 1, ksize=3)
-
 # Compute gradient magnitude
 gradient_magnitude = np.sqrt(gradient_x**2 + gradient_y**2)
-
 # Threshold the gradient magnitude to extract edges
 gradient_threshold = 50  # Adjust threshold value as needed
 edges = np.uint8(gradient_magnitude > gradient_threshold) * 255
-
 # Display the detected riverbank edges
 plt.imshow(edges, cmap='gray')
 plt.title('Detected Riverbank Edges')
@@ -171,62 +135,47 @@ plt.show()
 # Apply morphological operations to enhance detected edges
 kernel = np.ones((3, 3), np.uint8)
 edges_processed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-
 # Find contours of the processed edges
 contours, _ = cv2.findContours(edges_processed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
 # Draw contours on the original image or mask
 riverbank_lines = np.zeros_like(segmented_river)
 cv2.drawContours(riverbank_lines, contours, -1, (255), thickness=2)  # Draw detected contours as riverbank lines
-
 # Display the extracted riverbank lines
 plt.imshow(riverbank_lines, cmap='gray')
 plt.title('Extracted Riverbank Lines')
 plt.axis('off')
 plt.show()
-
 # Optional: Save the extracted riverbank lines as a shapefile or raster dataset for further analysis
 
 
 import cv2
 from skimage.measure import label
-
 # Define a criterion for adding neighboring pixels to the river region
 threshold_ndwi = 0.01
-
 # Initialize the river mask with pixels meeting the NDWI threshold
 river_mask = np.where(ndwi > threshold_ndwi, 1, 0)
-
 # Initialize a variable to keep track of changes in the river mask
 changes = True
-
 # Iteratively grow the river region until no more pixels can be added
 while changes:
     # Label connected components in the river mask
     labeled_mask = label(river_mask, connectivity=1)
-
     # Check if any changes occur in this iteration
     changes = False
-
     # Iterate through each labeled region
     for label_value in np.unique(labeled_mask):
         if label_value == 0:
             continue  # Skip background label
-
         # Extract the region corresponding to the current label
         region = np.where(labeled_mask == label_value, 1, 0)
-
         # Dilate the region to find neighboring pixels
         dilated_region = cv2.dilate(region.astype(np.uint8), kernel=np.ones((3, 3), dtype=np.uint8), iterations=1)
-
         # Check if any newly dilated pixels meet the NDWI threshold and are not already part of the river region
         newly_added_pixels = np.logical_and(dilated_region, np.logical_and(ndwi > threshold_ndwi, river_mask == 0))
-
         # If newly added pixels are found, update the river mask and set changes to True
         if np.any(newly_added_pixels):
             river_mask[newly_added_pixels] = 1
             changes = True
-
 # Display the segmented river region
 plt.imshow(river_mask, cmap='binary')  # Use 'binary' colormap for binary images
 plt.title('Segmented River Region')
@@ -237,7 +186,6 @@ plt.show()
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 def box_counting(binary_image, box_sizes):
     counts = []
     for box_size in box_sizes:
@@ -249,23 +197,17 @@ def box_counting(binary_image, box_sizes):
                     count += 1
         counts.append(count)
     return counts
-
 # List of box sizes to use for box-counting
 box_sizes = [2, 4, 8, 16, 32, 64, 128]
-
 # Perform box-counting
 counts = box_counting(ndwi_mask, box_sizes)
-
 # Calculate the fractal dimension
 log_box_sizes = np.log(box_sizes)
 log_counts = np.log(counts)
-
 # Perform linear regression
 coefficients = np.polyfit(log_box_sizes, log_counts, 1)
 fractal_dimension = -coefficients[0]
-
 print("Fractal Dimension:", fractal_dimension)
-
 # Plotting log-log graph
 plt.figure(figsize=(8, 6))
 plt.plot(log_box_sizes, log_counts, 'o', label='Data')
@@ -279,7 +221,6 @@ plt.show()
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 def box_counting(binary_image, box_sizes):
     counts = []
     for box_size in box_sizes:
@@ -295,23 +236,17 @@ def box_counting(binary_image, box_sizes):
                     count += 1
         counts.append(count)
     return counts
-
 # List of box sizes to use for box-counting
 box_sizes = [2, 4, 8, 16, 32, 64, 128]
-
 # Perform box-counting
 counts = box_counting(ndwi_mask, box_sizes)
-
 # Calculate the fractal dimension
 log_box_sizes = np.log(box_sizes)
 log_counts = np.log(counts)
-
 # Perform linear regression
 coefficients = np.polyfit(log_box_sizes, log_counts, 1)
 fractal_dimension = -coefficients[0]
-
 print("Fractal Dimension:", fractal_dimension)
-
 # Plotting log-log graph
 plt.figure(figsize=(8, 6))
 plt.plot(log_box_sizes, log_counts, 'o', label='Data')
@@ -325,7 +260,6 @@ plt.show()
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 def box_counting(binary_image, box_sizes):
     counts = []
     for box_size in box_sizes:
@@ -341,32 +275,25 @@ def box_counting(binary_image, box_sizes):
                     count += 1
         counts.append(count)
     return counts
-
 # List of box sizes to use for box-counting
 box_sizes = [2, 4, 8, 16, 32, 64, 128]
-
 # Perform box-counting
 counts = box_counting(ndwi_mask, box_sizes)
-
 # Calculate the fractal dimension
 log_box_sizes = np.log(box_sizes)
 log_counts = np.log(counts)
-
 # Perform linear regression
 coefficients = np.polyfit(log_box_sizes, log_counts, 1)
 fractal_dimension = -coefficients[0]
 intercept = coefficients[1]
-
 # Calculate R^2 value for goodness of fit
 fit_counts = np.polyval(coefficients, log_box_sizes)
 residuals = log_counts - fit_counts
 ss_res = np.sum(residuals**2)
 ss_tot = np.sum((log_counts - np.mean(log_counts))**2)
 r_squared = 1 - (ss_res / ss_tot)
-
 print("Fractal Dimension:", fractal_dimension)
 print("R-squared:", r_squared)
-
 # Plotting log-log graph
 plt.figure(figsize=(8, 6))
 plt.plot(log_box_sizes, log_counts, 'o', label='Data')
@@ -376,7 +303,6 @@ plt.ylabel('log(Count)')
 plt.legend()
 plt.title('Box-Counting Method for Fractal Dimension')
 plt.show()
-
 # Plotting residuals
 plt.figure(figsize=(8, 6))
 plt.plot(log_box_sizes, residuals, 'o', label='Residuals')
@@ -391,7 +317,6 @@ plt.show()
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
-
 def box_counting(binary_image, box_sizes):
     counts = []
     for box_size in box_sizes:
@@ -403,24 +328,18 @@ def box_counting(binary_image, box_sizes):
                     count += 1
         counts.append(count)
     return counts
-
 # List of box sizes to use for box-counting
 box_sizes = [2, 4, 8, 16, 32, 64, 128]
-
 # Perform box-counting
 counts = box_counting(ndwi_mask, box_sizes)
-
 # Calculate the fractal dimension
 log_box_sizes = np.log(box_sizes)
 log_counts = np.log(counts)
-
 # Perform linear regression
 slope, intercept, r_value, p_value, std_err = linregress(log_box_sizes, log_counts)
 fractal_dimension = -slope
-
 print("Fractal Dimension:", fractal_dimension)
 print("R-squared:", r_value**2)
-
 # Plotting log-log graph
 plt.figure(figsize=(8, 6))
 plt.plot(log_box_sizes, log_counts, 'o', label='Data')
